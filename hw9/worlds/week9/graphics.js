@@ -191,3 +191,6 @@ let vectorMinus = (a, b) => {
    return [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
 }
 
+let vectorMulti = (a, b) =>{
+   return [a[0]*b, a[1]*b, a[2]*b];
+}

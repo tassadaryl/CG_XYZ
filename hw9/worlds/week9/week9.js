@@ -25,6 +25,9 @@ const TABLE_THICKNESS  = 0.0254 *  11/8;
 const LEG_THICKNESS    = 0.0254 *   2.5;
 const CUBE_SIZE        = 0.2;
 const ROOM_SIZE        = 6;
+const BALL_SIZE        = 0.02;
+const BALL_SPEED       = 3;
+const PAD_SIZE         = 0.3;
 
 ////////////////////////////// SCENE SPECIFIC CODE
 
@@ -180,7 +183,7 @@ function ControllerHandler(controller) {
    let wasDown = false;
 }
 
-let LC, RC, isNewObj, isChosen, isInit=false, threshold = 0.02;
+let LC, RC, isNewObj, isChosen, isInit=false, threshold = 0.04;
 
 let bricks = [];
 for(let i = 0;i<5;i++){
@@ -273,10 +276,10 @@ function onStartFrame(t, state) {
             m.identity();
             m.rotateQ(RC.orientation());
             let t = m.value();
-            obj.velocity = neg(normalize(getOriZ(t)));
+            obj.velocity = vectorMulti(neg(normalize(getOriZ(t))), BALL_SPEED);
          m.restore();
          
-         obj.scale = [0.01,0.01,0.01];
+         obj.scale = [BALL_SIZE, BALL_SIZE, BALL_SIZE];
          obj.flag = true;
          obj.touch = false;
          obj.StartTime = state.time;
@@ -521,7 +524,7 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
           m.rotateQ(C.orientation());
             m.save();
                m.translate(0,0,0.01);
-               m.scale(0.1,0.1,0.005);
+               m.scale(PAD_SIZE,PAD_SIZE,0.005);
                /* let v = m.value();
                console.log("m.value()", v[12],v[13],v[14]);
                console.log(C.position()); */
@@ -559,7 +562,7 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
       else{
          let dx = objPos[0]-conPos[0];
          let dy = objPos[1]-conPos[1];
-         if (dx*dx+dy*dy>0.01){
+         if (dx*dx+dy*dy>PAD_SIZE*PAD_SIZE){
             return false;
          }
          else{
@@ -638,7 +641,7 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
           m.rotateQ(RC.orientation());
           m.translate(0,0,-.03);
           m.translate(0,0,0.025);
-          m.scale(0.01,0.01,0.01);
+          m.scale(BALL_SIZE, BALL_SIZE, BALL_SIZE);
           drawShape(obj.shape, [1,1,1]);
           console.log(P);
       m.restore();
@@ -729,7 +732,7 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
      
           m.rotateQ(obj.orientation);
           m.scale(...obj.scale);
-	  drawShape(obj.shape, n == objChoice ? [1,.5,.5] : [1,1,1]);
+	       drawShape(obj.shape, n == objChoice ? [1,.5,.5] : [1,1,1]);
        m.restore();
     }
    }
