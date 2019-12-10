@@ -44,6 +44,11 @@ let inverse = a => {
   return b;
 }
 
+let transpose = m => [ m[0],m[4],m[ 8],m[12],
+                       m[1],m[5],m[ 9],m[13],
+                       m[2],m[6],m[10],m[14],
+                       m[3],m[7],m[11],m[15] ];
+
 let Matrix = function() {
    let topIndex = 0,
        stack = [ identity() ],
@@ -154,3 +159,35 @@ let norm = a => {
 let neg = a => {
    return [-a[0], -a[1], -a[2]];
 }
+
+/* let trace = a => {
+   return a[0]+a[5]+a[10];
+}
+
+let minus = (a, b)=>{
+   return [a[6]-b[6],a[8]-b[8],a[1]-b[1]];
+}
+
+let vRotate = a => {
+   let v = minus(a, transpose(a));
+   let de = 2.*Math.sin(Math.acos((trace(a)-1)/2.));
+   return [v[0]/de, v[1]/de, v[2]/de];
+   //return minus(a, transpose(a))/(2.*Math.sin(Math.acos((trace(a)-1)/2.)));
+} */
+
+let getOriX = a => {
+   return [a[0],a[1],a[2]];
+}
+
+let getOriY = a => {
+   return [a[4],a[5],a[6]];
+}
+
+let getOriZ = a => {
+   return [a[8],a[9],a[10]];
+}
+
+let vectorMinus = (a, b) => {
+   return [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+}
+

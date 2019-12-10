@@ -23,6 +23,8 @@ const TABLE_HEIGHT     = 0.0254 *  29;
 const TABLE_WIDTH      = 0.0254 *  60;
 const TABLE_THICKNESS  = 0.0254 *  11/8;
 const LEG_THICKNESS    = 0.0254 *   2.5;
+const CUBE_SIZE        = 0.2;
+const ROOM_SIZE        = 6;
 
 ////////////////////////////// SCENE SPECIFIC CODE
 
@@ -30,8 +32,10 @@ async function setup(state) {
     hotReloadFile(getPath('week9.js'));
 
     const images = await imgutil.loadImagesPromise([
-       getPath("textures/wood.png"),
-       getPath("textures/tiles.jpg"),
+      getPath("textures/brick1.jpg"),
+      getPath("textures/brick2.jpg"),
+      getPath("textures/brick3.jpg"),
+      getPath("textures/cyber1.jpg")
     ]);
 
     let libSources = await MREditor.loadAndRegisterShaderLibrariesForLiveEditing(gl, "libs", [
@@ -150,9 +154,10 @@ based debugging tool, you can do something like console.log(leftController)
 to see what the options are.
 
 --------------------------------------------------------------------------------*/
+//console.log(leftController);
 
 function ControllerHandler(controller) {
-   console.log(controller)
+   //console.log(controller)
    this.lspeed      = () => controller.pose.linearVelocity;
    this.isDown      = () => controller.buttons[1].pressed;
    this.onEndFrame  = () => wasDown = this.isDown();
@@ -175,7 +180,21 @@ function ControllerHandler(controller) {
    let wasDown = false;
 }
 
-let LC, RC, isNewObj, isChosen;
+let LC, RC, isNewObj, isChosen, isInit=false, threshold = 0.02;
+
+let bricks = [];
+for(let i = 0;i<5;i++){
+   for(let j = 0;j<5;j++){
+      let brick = new Brick((i+j)%3);
+      brick.position = [0,j/2+1,-5+j/2];
+      brick.angle = i;
+      bricks.push(brick);
+   }
+}
+let brick = new Brick(1);
+brick.angle = 0;
+brick.position = [0,0,0.5];
+bricks.push(brick);
 
 function onStartFrame(t, state) {
 
@@ -240,8 +259,36 @@ function onStartFrame(t, state) {
     objects. There are lots of possibilities.
 
     -----------------------------------------------------------------*/
+    if (LC){
+      if (RC.press()){
+         isInit = true;
+      }
+      if(isInit==true && isStart==false && RC.release()){
+         let obj = objs[0];
+         let pos = RC.tip().slice();
+         obj.position = pos;
+         obj.releasePosition = pos;
+         obj.orientation = RC.orientation().slice();
+         m.save();
+            m.identity();
+            m.rotateQ(RC.orientation());
+            let t = m.value();
+            obj.velocity = neg(normalize(getOriZ(t)));
+         m.restore();
+         
+         obj.scale = [0.01,0.01,0.01];
+         obj.flag = true;
+         obj.touch = false;
+         obj.StartTime = state.time;
+         //obj.velocity = RC.Velocity();
+         //console.log("objvelocity:", obj.velocity);
+         isStart=true;
+         isInit=false;
+      }
+    }
 
-    if (LC) {
+
+    /* if (LC) {
        if (RC.isDown()) {
 	  menuChoice = findInMenu(RC.position(), LC.tip(), RC.orientation());
 	  if (menuChoice >= 0 && LC.press()) {
@@ -293,22 +340,8 @@ function onStartFrame(t, state) {
       if (LC.release()){
          isChosen = false;
         }
-   }
-
-   /* for (let i = 0; i < objs.length; i += 1) {
-      if (objs[i].velocity) {
-         let time = state.time - movingStartTime;
-         if (objs[i].position[0]*objs[i].position[0]+objs[i].position[1]*objs[i].position[1]+objs[i].position[2]*objs[i].position[2]<27) {
-            objs[i].position = [
-               objs[i].position[0] + objs[i].velocity[0] * time,
-               objs[i].position[1] + objs[i].velocity[1] * time,
-               objs[i].position[2] + objs[i].velocity[2] * time,
-            ];
-            movingStartTime = 0;
-            objs[i].linearVelocity = null;
-         }
-      }
    } */
+
    
 }
 
@@ -356,6 +389,10 @@ function Obj(shape) {
    this.shape = shape;
 };
 
+function Brick(color) {
+   this.color = color;
+};
+
 let findObj = (objs,mp)=>{
    let x = mp[0];
    let y = mp[1];
@@ -375,6 +412,10 @@ let findObj = (objs,mp)=>{
 }
 
 let objs = [];
+objs.push(new Obj(sphere));
+let isStart = false;
+
+//objs.push(new Obj(sphere));
 
 function onDraw(t, projMat, viewMat, state, eyeIdx) {
     gl.uniformMatrix4fv(state.uViewLoc, false, new Float32Array(viewMat));
@@ -478,38 +519,55 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
        m.save();
           m.translate(P[0], P[1], P[2]);
           m.rotateQ(C.orientation());
-	  m.save();
-	     m.translate(-s,0,.001);
-	     m.scale(.0125,.016,.036);
-             drawShape(cube, color);
-	  m.restore();
-	  m.save();
-	     m.translate( s,0,.001);
-	     m.scale(.0125,.016,.036);
-             drawShape(cube, color);
-	  m.restore();
-	  m.save();
-	     m.translate(0,0,.025);
-	     m.scale(.015,.015,.01);
-             drawShape(cube, [0,0,0]);
-	  m.restore();
-	  m.save();
-	     m.translate(0,0,.035);
-	     m.rotateX(.5);
-	     m.save();
-	        m.translate(0,-.001,.035);
-	        m.scale(.014,.014,.042);
-                drawShape(cylinder, [0,0,0]);
-	     m.restore();
-	     m.save();
-	        m.translate(0,-.001,.077);
-	        m.scale(.014,.014,.014);
-                drawShape(sphere, [0,0,0]);
-	     m.restore();
-	  m.restore();
+            m.save();
+               m.translate(0,0,0.01);
+               m.scale(0.1,0.1,0.005);
+               /* let v = m.value();
+               console.log("m.value()", v[12],v[13],v[14]);
+               console.log(C.position()); */
+               drawShape(cylinder, color);
+            m.restore();
+	         m.save();
+               m.translate(0,0,.025);
+               m.scale(.015,.015,.01);
+               drawShape(cube, [0,0,0]);
+	         m.restore();
+	         m.save();
+	            m.translate(0,0,.035);
+	            m.rotateX(.5);
+	               m.save();
+                     m.translate(0,-.001,.035);
+                     m.scale(.014,.014,.042);
+                     drawShape(cylinder, [0,0,0]);
+	               m.restore();
+	               m.save();
+	                  m.translate(0,-.001,.077);
+	                  m.scale(.014,.014,.014);
+                     drawShape(sphere, [0,0,0]);
+	               m.restore();
+	         m.restore();
        m.restore();
     }
 
+   let isTouch = (obj, C) => {
+      let objPos = obj.position;
+      let conPos = C.position();
+      let dz = Math.abs(objPos[2]-conPos[2]);
+      if (dz>threshold){
+         return false;
+      }
+      else{
+         let dx = objPos[0]-conPos[0];
+         let dy = objPos[1]-conPos[1];
+         if (dx*dx+dy*dy>0.01){
+            return false;
+         }
+         else{
+            return true;
+         }
+      }
+
+   }
     m.identity();
 
     /*-----------------------------------------------------------------
@@ -522,10 +580,10 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
     -----------------------------------------------------------------*/
 
     if (LC) {
-       drawController(LC, [1,0,0]);
+       //drawController(LC, [1,0,0]);
        drawController(RC, [0,1,1]);
-       if (RC.isDown())
-          showMenu(RC.position(),RC.orientation());
+       /* if (RC.isDown())
+          showMenu(RC.position(),RC.orientation()); */
     }
 
     /*-----------------------------------------------------------------
@@ -538,17 +596,82 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
 
     -----------------------------------------------------------------*/
 
+    let hitBrick = (ballPos)=>{
+      for(let i = 0;i<bricks.length;i++){
+         let b_x = Math.sin(bricks[i].angle/2)*bricks[i].position[2];
+         let b_y = bricks[i].position[1];
+         let b_z = Math.cos(bricks[i].angle/2)*bricks[i].position[2];
+         let x = ballPos[0]-b_x;
+         let y = ballPos[1]-b_y;
+         let z = ballPos[2]-b_z;
+         if(Math.abs(x)<=CUBE_SIZE&& Math.abs(y)<=CUBE_SIZE&& Math.abs(z)<=CUBE_SIZE){
+            let maxVal = Math.max(Math.abs(x),Math.max(Math.abs(y),Math.abs(z)));
+            let norm = [];
+            if(maxVal == x){
+               norm = normalize([-b_z,0,b_x]);
+            }else if(maxVal == -x){
+               norm = normalize([b_z,0,-b_x]);
+            }else if(maxVal == y){
+               norm = [0,1,0];
+            }else if(maxVal == -y){
+               norm = [0,-1,0];
+            }else if(maxVal == z){
+               norm = normalize([-b_x,0,-b_z]);
+            }else if(maxVal == -z){
+               norm = normalize([b_x,0,b_z]);
+            }             
+            return [i,norm];
+         }
+      }
+      return [-1,[]];
+   }
+
+   if (isStart == false){
+      let obj = objs[0];
+      //m.identity();
+
+      //obj.orientation = RC.orientation();
+      let P = RC.position();
+      m.save();
+          m.identity();
+          m.translate(P[0], P[1], P[2]);
+          m.rotateQ(RC.orientation());
+          m.translate(0,0,-.03);
+          m.translate(0,0,0.025);
+          m.scale(0.01,0.01,0.01);
+          drawShape(obj.shape, [1,1,1]);
+          console.log(P);
+      m.restore();
+      //let P = RC.position();
+      //let v = m.value();
+      //console.log("m.value()", v[12],v[13],v[14]);
+      //console.log(RC.position());
+      //m.save();
+         //m.translate(P[0], P[1], P[2]);
+         //m.rotateQ(RC.orientation());
+        // m.translate()
+         //m.translate(0,0,0.025);
+         //m.scale(0.01,0.01,0.01);
+         /* let v = m.value();
+         console.log("m.value()", v[12],v[13],v[14]);
+         console.log(RC.position()); */
+         //drawShape(obj.shape, [1,1,1]);
+      //m.restore();
+   }
+   else{
     for (let n = 0 ; n < objs.length ; n++) {
+       
        let obj = objs[n], P = obj.position, RP = obj.releasePosition;
+       //console.log("Con:", Math.abs(RC.position()[2]-obj.position[2]));
+       //console.log("Con:", RC.position()[2]);
+       //console.log("obj:", obj.position[2]);
        m.save();
          if (obj.velocity){
             m.translate(RP[0], RP[1], RP[2]);
             let time = state.time - obj.StartTime;
             obj.position = [RP[0]+obj.velocity[0] * time, RP[1]+obj.velocity[1] * time, RP[2]+obj.velocity[2] * time];
             m.translate(obj.velocity[0] * time, obj.velocity[1] * time, obj.velocity[2] * time);
-            //console.log(obj.position);
-            if (norm(obj.position)>1.99&&obj.flag){
-               //obj.velocity = null;
+            if (norm(obj.position)> ROOM_SIZE-0.01 && obj.flag){
                let N = normalize(neg(obj.position));
                let v = norm(obj.velocity);
                let I = normalize(neg(obj.velocity));
@@ -557,18 +680,46 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
                obj.releasePosition = obj.position.slice();
                obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
                obj.flag = false;
-               //obj.StartTime=state.time;
-               //obj.velocity = neg(obj.velocity);
-               //obj.releasePosition = obj.position.slice();
-               //console.log("obj.velocity:", obj.velocity);
-               //console.log("obj.position:", obj.position);
-               /* console.log("N:", N);
-               console.log("v:", v);
-               console.log("I:", I);
-               console.log("w:", w); */
             }
-            else if (norm(obj.position)<1.99){
+            else if (norm(obj.position)<ROOM_SIZE-0.01){
                obj.flag = true;
+            }
+
+            if (obj.touch && isTouch(obj, RC)){
+               let N;
+               m.save();
+                  m.identity();
+                  m.rotateQ(RC.orientation());
+                  let t = m.value();
+                  N = neg(normalize(getOriZ(t)));
+               m.restore();
+         
+               //let N = normalize(neg(obj.position));
+               let v = norm(obj.velocity);
+               let I = normalize(neg(obj.velocity));
+               let w = 2.*dot(I, N);
+               obj.StartTime=state.time;
+               obj.releasePosition = obj.position.slice();
+               obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
+               obj.touch = false;
+               console.log("touch!");
+            }
+            else if(Math.abs(obj.position[2]-RC.position()[2])>threshold){
+               obj.touch = true;
+            }
+
+            let brickP = hitBrick(obj.position);
+            
+            if(brickP[0]!=-1){     
+               //console.log(brickP);          
+               let N = brickP[1];
+               let v = norm(obj.velocity);
+               let I = normalize(neg(obj.velocity));
+               let w = 2.*dot(I, N);
+               obj.StartTime=state.time;
+               obj.releasePosition = obj.position.slice();
+               obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
+               bricks.splice(brickP[0],1);
             }
          }
          
@@ -579,6 +730,23 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
           m.rotateQ(obj.orientation);
           m.scale(...obj.scale);
 	  drawShape(obj.shape, n == objChoice ? [1,.5,.5] : [1,1,1]);
+       m.restore();
+    }
+   }
+
+   let drawCube = (m,color) =>{
+      m.save();
+         //m.translate(x,y,z);
+         m.scale(CUBE_SIZE,CUBE_SIZE,CUBE_SIZE);
+         drawShape(cube,[3,3,3],color,1);
+      m.restore();
+    }
+    for( let n  = 0; n < bricks.length ; n++){
+       let pos = bricks[n].position;
+       m.save();
+         m.rotateY((bricks[n].angle)/2);
+         m.translate(pos[0],pos[1],pos[2]);
+         drawCube(m,bricks[n].color);
        m.restore();
     }
 
@@ -608,8 +776,9 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
       m.translate(0,-EYE_HEIGHT,0);
       //m.translate(4, 4, 0);
       //m.rotateY(90);
-      m.scale(-2,-2,-2);
-      drawShape(sphere, [1,1,1],1,2);
+      m.rotateX(Math.PI*0.5);
+      m.scale(-ROOM_SIZE,-ROOM_SIZE,-ROOM_SIZE);
+      drawShape(sphere, [1,1,1],3,1);
     m.restore();
 
     /* m.save();
