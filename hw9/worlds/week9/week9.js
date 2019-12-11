@@ -1,28 +1,8 @@
 "use strict"
 
-/*
-   Things you might want to try:
-      object modify: move, rotate, scale, clone, delete, color, proportions
-*/
-
-/*--------------------------------------------------------------------------------
-
-The proportions below just happen to match the dimensions of my physical space
-and the tables in that space.
-
-Note that I measured everything in inches, and then converted to units of meters
-(which is what VR requires) by multiplying by 0.0254.
-
---------------------------------------------------------------------------------*/
+////////////////////////////// CONST definitions
 
 const EYE_HEIGHT       = 0;//0.0254 *  69;
-const HALL_LENGTH      = 0.0254 * 306;
-const HALL_WIDTH       = 0.0254 * 213;
-const TABLE_DEPTH      = 0.0254 *  30;
-const TABLE_HEIGHT     = 0.0254 *  29;
-const TABLE_WIDTH      = 0.0254 *  60;
-const TABLE_THICKNESS  = 0.0254 *  11/8;
-const LEG_THICKNESS    = 0.0254 *   2.5;
 const CUBE_SIZE        = 0.2;
 const ROOM_SIZE        = 6;
 const BALL_SIZE        = 0.02;
@@ -136,31 +116,15 @@ async function setup(state) {
     }
 }
 
-let noise = new ImprovedNoise();
+//let noise = new ImprovedNoise();
 let m = new Matrix();
 let turnAngle = 0, tiltAngle = 0, cursorPrev = [0,0,0];
 
 /*--------------------------------------------------------------------------------
-
-I wrote the following to create an abstraction on top of the left and right
-controllers, so that in the onStartFrame() function we can detect press()
-and release() events when the user depresses and releases the trigger.
-
-The field detecting the trigger being pressed is buttons[1].pressed.
-You can detect pressing of the other buttons by replacing the index 1
-by indices 0 through 5.
-
-You might want to try more advanced things with the controllers.
-As we discussed in class, there are many more fields in the Gamepad object,
-such as linear and angular velocity and acceleration. Using the browser
-based debugging tool, you can do something like console.log(leftController)
-to see what the options are.
-
+ abstraction on top of the left and right controller
 --------------------------------------------------------------------------------*/
-//console.log(leftController);
 
 function ControllerHandler(controller) {
-   //console.log(controller)
    this.lspeed      = () => controller.pose.linearVelocity;
    this.isDown      = () => controller.buttons[1].pressed;
    this.onEndFrame  = () => wasDown = this.isDown();
@@ -183,7 +147,15 @@ function ControllerHandler(controller) {
    let wasDown = false;
 }
 
-let LC, RC, isNewObj, isChosen, isInit=false, threshold = 0.04;
+/*--------------------------------------------------------------------------------
+ Initialization of left, right controller and whether the ball is launched
+--------------------------------------------------------------------------------*/
+
+let LC, RC, isInit=false;
+
+/*--------------------------------------------------------------------------------
+ bricks constructions
+--------------------------------------------------------------------------------*/
 
 let bricks = [];
 for(let i = 0;i<5;i++){
@@ -202,16 +174,8 @@ bricks.push(brick);
 function onStartFrame(t, state) {
 
     /*-----------------------------------------------------------------
-
     Whenever the user enters VR Mode, create the left and right
     controller handlers.
-
-    Also, for my particular use, I have set up a particular transformation
-    so that the virtual room would match my physical room, putting the
-    resulting matrix into state.calibrate. If you want to do something
-    similar, you would need to do a different calculation based on your
-    particular physical room.
-
     -----------------------------------------------------------------*/
 
     if (MR.VRIsActive()) {
@@ -220,8 +184,6 @@ function onStartFrame(t, state) {
 
        if (! state.calibrate) {
           m.identity();
-          //m.rotateY(Math.PI/2);
-          //m.translate(-2.01,.04,0);
           state.calibrate = m.value().slice();
        }
     }
@@ -253,140 +215,43 @@ function onStartFrame(t, state) {
     gl.enable(gl.CULL_FACE);
 
     /*-----------------------------------------------------------------
-
-    Below is the logic for my little toy geometric modeler example.
-    You should do something more or different for your assignment. 
-    Try modifying the size or color or texture of objects. Try
-    deleting objects or adding constraints to make objects align
-    when you bring them together. Try adding controls to animate
-    objects. There are lots of possibilities.
-
+    Below is the logic for the launch of the ball.
+    When RightButton is released, the ball get all the parameters
+    and the game starts.
     -----------------------------------------------------------------*/
+
     if (LC){
       if (RC.press()){
          isInit = true;
       }
       if(isInit==true && isStart==false && RC.release()){
-         let obj = objs[0];
+         let ball = balls[0];
          let pos = RC.tip().slice();
-         obj.position = pos;
-         obj.releasePosition = pos;
-         obj.orientation = RC.orientation().slice();
+         ball.position = pos;
+         ball.releasePosition = pos;
+         ball.orientation = RC.orientation().slice();
          m.save();
             m.identity();
             m.rotateQ(RC.orientation());
             let t = m.value();
-            obj.velocity = vectorMulti(neg(normalize(getOriZ(t))), BALL_SPEED);
+            ball.velocity = vectorMulti(neg(normalize(getOriZ(t))), BALL_SPEED);
          m.restore();
          
-         obj.scale = [BALL_SIZE, BALL_SIZE, BALL_SIZE];
-         obj.flag = true;
-         obj.touch = false;
-         obj.StartTime = state.time;
-         //obj.velocity = RC.Velocity();
-         //console.log("objvelocity:", obj.velocity);
+         ball.scale = [BALL_SIZE, BALL_SIZE, BALL_SIZE];
+         ball.flag = true;
+         ball.touch = false;
+         ball.StartTime = state.time;
          isStart=true;
          isInit=false;
       }
     }
-
-
-    /* if (LC) {
-       if (RC.isDown()) {
-	  menuChoice = findInMenu(RC.position(), LC.tip(), RC.orientation());
-	  if (menuChoice >= 0 && LC.press()) {
-	     isNewObj = true;
-        objs.push(new Obj(menuShape[menuChoice]));
-	  }
-       }
-       if (isNewObj) {
-         let obj = objs[objs.length - 1];
-         obj.position = LC.tip().slice();
-         obj.releasePosition = LC.tip().slice();
-         obj.orientation = LC.orientation().slice();
-         obj.scale = [0.03,0.03,0.03];
-         obj.flag = true;
-       }
-       if (LC.release()&&isNewObj){
-         let obj = objs[objs.length - 1];
-         obj.StartTime = state.time;
-         let velocity = LC.Velocity();
-         if (velocity[0] > 0.0001 || velocity[1] > 0.0001 || velocity[2] > 0.0001) {
-            // throwing this object
-            //movingStartTime = state.time;
-            obj.velocity = velocity;
-         }
-         else{
-            obj.velocity=null;
-         }
-         isNewObj = false;
-         }
-      
-      }
-   if(RC){
-      if(!RC.isDown()){
-         objChoice = findObj(objs, LC.tip());
-         if(objChoice>=0 && LC.isDown()){
-            isChosen = true;
-         }
-      }
-      if(LC.sideButton()&&isChosen){
-         objs.splice(objChoice,1);
-         isChosen = false;
-      }
-      if(isChosen){
-         let obj = objs[objChoice];
-         obj.position = LC.tip().slice();
-         obj.orientation = LC.orientation().slice();
-      }
-
-      if (LC.release()){
-         isChosen = false;
-        }
-   } */
-
-   
 }
 
-let menuX = [-.2,-.1,-.2,-.1];
-let menuY = [ .1, .1,  0,  0];
-let menuShape = [ cube, sphere, cylinder, torus ];
-let menuChoice = -1, objChoice=-1;
-let movingStartTime = 0;
 
 /*-----------------------------------------------------------------
-
-If the controller tip is near to a menu item, return the index
-of that item. If the controller tip is not near to any menu
-item, return -1.
-
-mp == position of the menu origin (position of the right controller).
-p  == the position of the left controller tip.
-
+Some function and parameter definitions
 -----------------------------------------------------------------*/
 
-let findInMenu = (mp, p, ori) => {
-   m.save();
-   m.identity();                     
-   m.translate(mp[0], mp[1], mp[2]);    
-   m.rotateQ(ori);    
-   for (let n = 0 ; n < 4 ; n++) {
-      m.save();
-         m.translate(menuX[n],menuY[n],0);
-         m.scale(.03, .03, .03);
-         let v = m.value();
-      m.restore();
-      let dx = p[0] - v[12];
-      let dy = p[1] - v[13];
-      let dz = p[2] - v[14];
-      /* if (n==0)
-         console.log("dx=",dx,"  dy=",dy,"  dz=",dz); */
-      if (dx * dx + dy * dy + dz * dz < .03 * .03)
-	 return n;
-   }
-   m.restore();
-   return -1;
-}
 
 function Obj(shape) {
    this.shape = shape;
@@ -396,29 +261,10 @@ function Brick(color) {
    this.color = color;
 };
 
-let findObj = (objs,mp)=>{
-   let x = mp[0];
-   let y = mp[1];
-   let z = mp[2];
-   for (let n = 0 ;n< objs.length ; n++) {
-      let obj = objs[n];
-      //let size = obj.size;
-      let dx = x - obj.position[0];
-      let dy = y - obj.position[1];
-      let dz = z - obj.position[2];
-      if (dx * dx + dy * dy + dz * dz < .03*.03 )
-	      return n;
-   }
-   return -1;
-
-
-}
-
-let objs = [];
-objs.push(new Obj(sphere));
+let balls = [];
+balls.push(new Obj(sphere));
 let isStart = false;
-
-//objs.push(new Obj(sphere));
+let threshold = 0.04
 
 function onDraw(t, projMat, viewMat, state, eyeIdx) {
     gl.uniformMatrix4fv(state.uViewLoc, false, new Float32Array(viewMat));
@@ -449,72 +295,9 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
        prev_shape = shape;
     }
 
+   
     /*-----------------------------------------------------------------
-
-    In my little toy geometric modeler, the pop-up menu of objects only
-    appears while the right controller trigger is pressed. This is just
-    an example. Feel free to change things, depending on what you are
-    trying to do in your homework.
-
-    -----------------------------------------------------------------*/
-
-
-    let showMenu = (p,ori) => {
-      let x = p[0], y = p[1], z = p[2];
-      m.save();
-      m.translate(x, y , z);
-      m.rotateQ(ori);
-      for (let n = 0 ; n < 4 ; n++) {
-         m.save();
-       m.translate(menuX[n], menuY[n], 0);
-       m.scale(.03, .03, .03);
-       drawShape(menuShape[n], n == menuChoice ? [1,.5,.5] : [1,1,1]);
-         m.restore();
-      }
-      m.restore();
-   }
-
-    /*-----------------------------------------------------------------
-
-    drawTabbe() just happens to model the physical size and shape of the
-    tables in my lab (measured in meters). If you want to model physical
-    furniture, you will probably want to do something different.
-
-    -----------------------------------------------------------------*/
-
-    let drawTable = () => {
-       m.save();
-          m.translate(0, TABLE_HEIGHT - TABLE_THICKNESS/2, 0);
-          m.scale(TABLE_DEPTH/2, TABLE_THICKNESS/2, TABLE_WIDTH/2);
-          drawShape(cube, [1,1,1], 0);
-       m.restore();
-       m.save();
-          let h  = (TABLE_HEIGHT - TABLE_THICKNESS) / 2;
-          let dx = (TABLE_DEPTH  - LEG_THICKNESS  ) / 2;
-          let dz = (TABLE_WIDTH  - LEG_THICKNESS  ) / 2;
-	  for (let x = -dx ; x <= dx ; x += 2 * dx)
-	  for (let z = -dz ; z <= dz ; z += 2 * dz) {
-	     m.save();
-                m.translate(x, h, z);
-                m.scale(LEG_THICKNESS/2, h, LEG_THICKNESS/2);
-                drawShape(cube, [.5,.5,.5]);
-	     m.restore();
-	  }
-       m.restore();
-    }
-
-    /*-----------------------------------------------------------------
-
-    The below is just my particular "programmer art" for the size and
-    shape of a controller. Feel free to create a different appearance
-    for the controller. You might also want the controller appearance,
-    as well as the way it animates when you press the trigger or other
-    buttons, to change with different functionality.
-
-    For example, you might want to have one appearance when using it as
-    a selection tool, a resizing tool, a tool for drawing in the air,
-    and so forth.
-
+    Below is the pad shape and brick definition
     -----------------------------------------------------------------*/
 
     let drawController = (C, color) => {
@@ -525,9 +308,6 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
             m.save();
                m.translate(0,0,0.01);
                m.scale(PAD_SIZE,PAD_SIZE,0.005);
-               /* let v = m.value();
-               console.log("m.value()", v[12],v[13],v[14]);
-               console.log(C.position()); */
                drawShape(cylinder, color);
             m.restore();
 	         m.save();
@@ -552,16 +332,26 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
        m.restore();
     }
 
-   let isTouch = (obj, C) => {
-      let objPos = obj.position;
+    let drawCube = (m,color) =>{
+      m.save();
+         m.scale(CUBE_SIZE,CUBE_SIZE,CUBE_SIZE);
+         drawShape(cube,[3,3,3],color,1);
+      m.restore();
+    }
+
+    /*---------------------------------------------------------------------
+    Below is the logic for the collision between ball and pad.
+    ---------------------------------------------------------------------*/
+   let isTouch = (ball, C) => {
+      let ballPos = ball.position;
       let conPos = C.position();
-      let dz = Math.abs(objPos[2]-conPos[2]);
+      let dz = Math.abs(ballPos[2]-conPos[2]);
       if (dz>threshold){
          return false;
       }
       else{
-         let dx = objPos[0]-conPos[0];
-         let dy = objPos[1]-conPos[1];
+         let dx = ballPos[0]-conPos[0];
+         let dy = ballPos[1]-conPos[1];
          if (dx*dx+dy*dy>PAD_SIZE*PAD_SIZE){
             return false;
          }
@@ -571,35 +361,12 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
       }
 
    }
-    m.identity();
 
-    /*-----------------------------------------------------------------
+   /*---------------------------------------------------------------------
+    Below is the logic for the collision between ball and brick.
+    ---------------------------------------------------------------------*/
 
-    Notice that the actual drawing for my application is done in the
-    onDraw() function, whereas the controller logic is done in the
-    onStartFrame() function. Whatever your application, it is
-    important to make this separation.
-
-    -----------------------------------------------------------------*/
-
-    if (LC) {
-       //drawController(LC, [1,0,0]);
-       drawController(RC, [0,1,1]);
-       /* if (RC.isDown())
-          showMenu(RC.position(),RC.orientation()); */
-    }
-
-    /*-----------------------------------------------------------------
-
-    This is where I draw the objects that have been created.
-
-    If I were to make these objects interactive (that is, responsive
-    to the user doing things with the controllers), that logic would
-    need to go into onStartFrame(), not here.
-
-    -----------------------------------------------------------------*/
-
-    let hitBrick = (ballPos)=>{
+   let hitBrick = (ballPos)=>{
       for(let i = 0;i<bricks.length;i++){
          let b_x = Math.sin(bricks[i].angle/2)*bricks[i].position[2];
          let b_y = bricks[i].position[1];
@@ -629,11 +396,23 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
       return [-1,[]];
    }
 
-   if (isStart == false){
-      let obj = objs[0];
-      //m.identity();
+    /*-----------------------------------------------------------------
+      draw the pad
+    -----------------------------------------------------------------*/
 
-      //obj.orientation = RC.orientation();
+    if (LC) {
+       drawController(RC, [0,1,1]);
+    }
+
+    /*-----------------------------------------------------------------
+    Below is the code to move the ball and draw it
+    -----------------------------------------------------------------*/
+
+   m.identity();
+
+   // If ball is not launched
+   if (isStart == false){
+      let ball = balls[0];
       let P = RC.position();
       m.save();
           m.identity();
@@ -642,53 +421,42 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
           m.translate(0,0,-.03);
           m.translate(0,0,0.025);
           m.scale(BALL_SIZE, BALL_SIZE, BALL_SIZE);
-          drawShape(obj.shape, [1,1,1]);
-          console.log(P);
+          drawShape(ball.shape, [1,1,1]);
       m.restore();
-      //let P = RC.position();
-      //let v = m.value();
-      //console.log("m.value()", v[12],v[13],v[14]);
-      //console.log(RC.position());
-      //m.save();
-         //m.translate(P[0], P[1], P[2]);
-         //m.rotateQ(RC.orientation());
-        // m.translate()
-         //m.translate(0,0,0.025);
-         //m.scale(0.01,0.01,0.01);
-         /* let v = m.value();
-         console.log("m.value()", v[12],v[13],v[14]);
-         console.log(RC.position()); */
-         //drawShape(obj.shape, [1,1,1]);
-      //m.restore();
+      
    }
+
+   // If ball is launched, game start
    else{
-    for (let n = 0 ; n < objs.length ; n++) {
+    for (let n = 0 ; n < balls.length ; n++) {
        
-       let obj = objs[n], P = obj.position, RP = obj.releasePosition;
-       //console.log("Con:", Math.abs(RC.position()[2]-obj.position[2]));
-       //console.log("Con:", RC.position()[2]);
-       //console.log("obj:", obj.position[2]);
+       let ball = balls[n], P = ball.position, RP = ball.releasePosition;
+
        m.save();
-         if (obj.velocity){
+         if (ball.velocity){
+         // update ball position with time and velocity
             m.translate(RP[0], RP[1], RP[2]);
-            let time = state.time - obj.StartTime;
-            obj.position = [RP[0]+obj.velocity[0] * time, RP[1]+obj.velocity[1] * time, RP[2]+obj.velocity[2] * time];
-            m.translate(obj.velocity[0] * time, obj.velocity[1] * time, obj.velocity[2] * time);
-            if (norm(obj.position)> ROOM_SIZE-0.01 && obj.flag){
-               let N = normalize(neg(obj.position));
-               let v = norm(obj.velocity);
-               let I = normalize(neg(obj.velocity));
+            let time = state.time - ball.StartTime;
+            ball.position = [RP[0]+ball.velocity[0] * time, RP[1]+ball.velocity[1] * time, RP[2]+ball.velocity[2] * time];
+            m.translate(ball.velocity[0] * time, ball.velocity[1] * time, ball.velocity[2] * time);
+
+            // if the ball hits the boundary of the sphere scene
+            if (norm(ball.position)> ROOM_SIZE-0.01 && ball.flag){
+               let N = normalize(neg(ball.position));
+               let v = norm(ball.velocity);
+               let I = normalize(neg(ball.velocity));
                let w = 2.*dot(I, N);
-               obj.StartTime=state.time;
-               obj.releasePosition = obj.position.slice();
-               obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
-               obj.flag = false;
+               ball.StartTime=state.time;
+               ball.releasePosition = ball.position.slice();
+               ball.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
+               ball.flag = false;
             }
-            else if (norm(obj.position)<ROOM_SIZE-0.01){
-               obj.flag = true;
+            else if (norm(ball.position)<ROOM_SIZE-0.01){
+               ball.flag = true;
             }
 
-            if (obj.touch && isTouch(obj, RC)){
+            // if the ball hits the pad
+            if (ball.touch && isTouch(ball, RC)){
                let N;
                m.save();
                   m.identity();
@@ -697,31 +465,29 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
                   N = neg(normalize(getOriZ(t)));
                m.restore();
          
-               //let N = normalize(neg(obj.position));
-               let v = norm(obj.velocity);
-               let I = normalize(neg(obj.velocity));
+               let v = norm(ball.velocity);
+               let I = normalize(neg(ball.velocity));
                let w = 2.*dot(I, N);
-               obj.StartTime=state.time;
-               obj.releasePosition = obj.position.slice();
-               obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
-               obj.touch = false;
+               ball.StartTime=state.time;
+               ball.releasePosition = ball.position.slice();
+               ball.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
+               ball.touch = false;
                console.log("touch!");
             }
-            else if(Math.abs(obj.position[2]-RC.position()[2])>threshold){
-               obj.touch = true;
+            else if(Math.abs(ball.position[2]-RC.position()[2])>threshold){
+               ball.touch = true;
             }
 
-            let brickP = hitBrick(obj.position);
-            
+            // if the ball hits the bricks
+            let brickP = hitBrick(ball.position);
             if(brickP[0]!=-1){     
-               //console.log(brickP);          
                let N = brickP[1];
-               let v = norm(obj.velocity);
-               let I = normalize(neg(obj.velocity));
+               let v = norm(ball.velocity);
+               let I = normalize(neg(ball.velocity));
                let w = 2.*dot(I, N);
-               obj.StartTime=state.time;
-               obj.releasePosition = obj.position.slice();
-               obj.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
+               ball.StartTime=state.time;
+               ball.releasePosition = ball.position.slice();
+               ball.velocity = [v*(w*N[0]-I[0]), v*(w*N[1]-I[1]), v*(w*N[2]-I[2])];
                bricks.splice(brickP[0],1);
             }
          }
@@ -730,20 +496,15 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
             m.translate(P[0], P[1], P[2]);
          }
      
-          m.rotateQ(obj.orientation);
-          m.scale(...obj.scale);
-	       drawShape(obj.shape, n == objChoice ? [1,.5,.5] : [1,1,1]);
+         //draw the ball
+          m.rotateQ(ball.orientation);
+          m.scale(...ball.scale);
+	       drawShape(ball.shape, [1,1,1]);
        m.restore();
     }
    }
 
-   let drawCube = (m,color) =>{
-      m.save();
-         //m.translate(x,y,z);
-         m.scale(CUBE_SIZE,CUBE_SIZE,CUBE_SIZE);
-         drawShape(cube,[3,3,3],color,1);
-      m.restore();
-    }
+    //draw the brick
     for( let n  = 0; n < bricks.length ; n++){
        let pos = bricks[n].position;
        m.save();
@@ -761,38 +522,16 @@ function onDraw(t, projMat, viewMat, state, eyeIdx) {
     m.rotateY(turnAngle);
 
     /*-----------------------------------------------------------------
-
-    Notice that I make the room itself as an inside-out cube, by
-    scaling x,y and z by negative amounts. This negative scaling
-    is a useful general trick for creating interiors.
-
+    draw the boundary of the scene
     -----------------------------------------------------------------*/
-
-    //original cube room
-    /* m.save();
-       m.translate(0, HALL_WIDTH/2, 0);
-       m.scale(-HALL_WIDTH/2, -HALL_WIDTH/2, -HALL_LENGTH/2);
-       drawShape(cube, [1,1,1], 1, 2);
-    m.restore(); */
-
     m.save();
       m.translate(0,-EYE_HEIGHT,0);
-      //m.translate(4, 4, 0);
-      //m.rotateY(90);
       m.rotateX(Math.PI*0.5);
       m.scale(-ROOM_SIZE,-ROOM_SIZE,-ROOM_SIZE);
       drawShape(sphere, [1,1,1],3,1);
     m.restore();
 
-    /* m.save();
-       m.translate((HALL_WIDTH - TABLE_DEPTH) / 2, 0, 0);
-       drawTable();
-    m.restore(); */
-
-    /* m.save();
-       m.translate((TABLE_DEPTH - HALL_WIDTH) / 2, 0, 0);
-       drawTable();
-    m.restore(); */
+    
     
 
 }
